@@ -95,7 +95,7 @@ class Command():
 
             respText = self.getResponseTextForPresentation(respHeaderText, respBodyText, latencyTimeMilisec, downloadTimeMilisec)
 
-            panel = sublime.active_window().new_file()
+            
 
             obj = json.loads(respBodyText)
 
@@ -105,18 +105,16 @@ class Command():
                                       sort_keys = False,
                                       separators = (',', ': '))
 
+            panel = sublime.active_window().get_output_panel("arango_panel_output")
             panel.set_read_only(False)
             panel.set_syntax_file("Packages/JavaScript/JSON.tmLanguage")
             panel.run_command('append', {'characters': prettyRespBodyText})
             panel.set_read_only(True)
+            sublime.active_window().run_command("show_panel", {"panel": "output.arango_panel_output"})
 
             conn.close()
         except (socket.error, http.client.HTTPException, socket.timeout) as e:
             print(e)
-            # if not(isinstance(e, types.NoneType)):
-            #     respText = "Error connecting: " + str(e)
-            # else:
-            #     respText = "Error connecting"
         except AttributeError as e:
             print(e)
             respText = "HTTPS not supported by your Python version"
