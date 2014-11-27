@@ -1,0 +1,18 @@
+{
+    "connections": {
+    	"TanTan" : {
+    		"host"    : "127.0.0.1",
+			"port"    : 8529,
+			"username": "user",
+			"password": "password",
+			"database": "tantan"
+    	},
+    	"TestStress" : {
+    		"host"    : "127.0.0.1",
+			"port"    : 8529,
+			"username": "user",
+			"password": "password",
+			"database": "test_stress"
+    	}
+    }
+}

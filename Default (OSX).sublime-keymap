@@ -1,0 +1,5 @@
+[
+	{ "keys": ["ctrl+e", "ctrl+enter"], "command": "arango_exec" },
+	{ "keys": ["ctrl+y", "ctrl+enter"], "command": "arango_explain" },
+	{ "keys": ["ctrl+alt+y"], "command": "arango_list_connection" }
+]
