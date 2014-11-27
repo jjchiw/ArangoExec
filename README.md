@@ -33,7 +33,7 @@ Settings
 'Preferences' -> 'Package Settings' -> 'ArangoExec'
 
 ```json
-{{
+{
     "connections": {
     	"someConnection" : {
     		"host"    : "127.0.0.1",
@@ -51,13 +51,12 @@ Settings
     	}
     }
 }
-}
 ```
 
 # TODO
 --------
 
 * Use credentials
-* I know there is more things, but I'm not really sure right now what else :)
+* I know there are more things, but I'm not really sure right now what else :)
 
 Inspired and Based on [SQLExec](https://sublime.wbond.net/packages/SQLExec) & [SublimeHttpRequester](https://github.com/braindamageinc/SublimeHttpRequester)
