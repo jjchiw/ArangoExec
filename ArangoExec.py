@@ -61,7 +61,7 @@ class Command():
         request_page = "/_db/"+ options.database + urlPart
         requestPOSTBody = json.dumps(requestObject)
         requestType = "POST"
-        print(request_page)
+
         try:
             # if not(useProxy):
                 #if httpProtocol == self.HTTP_URL:
