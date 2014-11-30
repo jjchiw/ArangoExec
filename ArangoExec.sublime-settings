@@ -1,11 +1,11 @@
 {
     "connections": {
-    	"TanTan" : {
+    	"Connection1" : {
     		"host"    : "127.0.0.1",
 			"port"    : 8529,
 			"username": "user",
 			"password": "password",
-			"database": "tantan"
+			"database": "somedatabase"
     	},
     	"TestStress" : {
     		"host"    : "127.0.0.1",
