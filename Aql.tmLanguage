@@ -32,7 +32,7 @@
 						<key>match</key>
 						<string>\b(to_bool|to_number|to_string|to_list|is_null|is_bool|is_number|is_string|is_list|is_document|TO_BOOL|TO_NUMBER|TO_STRING|TO_LIST|IS_NULL|IS_BOOL|IS_NUMBER|IS_STRING|IS_LIST|IS_DOCUMENT)\b</string>
 						<key>name</key>
-						<string>typecast.function.aql</string>
+						<string>entity.name.function.aql</string>
 					</dict>
 				</array>
 			</dict>
@@ -43,7 +43,7 @@
 						<key>match</key>
 						<string>\b(concat|concat_separator|char_length|lower|upper|substitute|substring|left|right|trim|ltrim|rtrim|split|reverse|contains|find_first|find_last|like|CONCAT|CONCAT_SEPARATOR|CHAR_LENGTH|LOWER|UPPER|SUBSTITUTE|SUBSTRING|LEFT|RIGHT|TRIM|LTRIM|RTRIM|SPLIT|REVERSE|CONTAINS|FIND_FIRST|FIND_LAST|LIKE)\b</string>
 						<key>name</key>
-						<string>string.function.aql</string>
+						<string>entity.name.function.aql</string>
 					</dict>
 				</array>
 			</dict>
@@ -54,7 +54,7 @@
 						<key>match</key>
 						<string>\b(floor|ceil|round|abs|sqrt|rand|FLOOR|CEIL|ROUND|ABS|SQRT|RAND)\b</string>
 						<key>name</key>
-						<string>numeric.function.aql</string>
+						<string>entity.name.function.aql</string>
 					</dict>
 				</array>
 			</dict>
@@ -65,7 +65,7 @@
 						<key>match</key>
 						<string>\b(date_timestamp|date_iso8601|date_dayofweek|date_year|date_month|date_day|date_hour|date_minute|date_second|date_millisecond|date_now|DATE_TIMESTAMP|DATE_ISO8601|DATE_DAYOFWEEK|DATE_YEAR|DATE_MONTH|DATE_DAY|DATE_HOUR|DATE_MINUTE|DATE_SECOND|DATE_MILLISECOND|DATE_NOW)\b</string>
 						<key>name</key>
-						<string>date.function.aql</string>
+						<string>entity.name.function.aql</string>
 					</dict>
 				</array>
 			</dict>
@@ -74,9 +74,9 @@
 				<array>
 					<dict>
 						<key>match</key>
-						<string>\b(length|flatten|min|max|average|sum|median|percentile|variance_population|variance_sample|stddev_population|stddev_sample|reverse|first|last|nth|position|slice|unique|union|union_distinct|minus|intersection|LENGTH|FLATTEN|MIN|MAX|AVERAGE|SUM|MEDIAN|PERCENTILE|VARIANCE_POPULATION|VARIANCE_SAMPLE|STDDEV_POPULATION|STDDEV_SAMPLE|REVERSE|FIRST|LAST|NTH|POSITION|SLICE|UNIQUE|UNION|UNION_DISTINCT|MINUS|INTERSECTION)\b</string>
+						<string>\b(length|flatten|min|max|average|sum|median|percentile|variance_population|variance_sample|stddev_population|stddev_sample|reverse|first|last|nth|position|slice|unique|union|union_distinct|minus|intersection|LENGTH|FLATTEN|MIN|MAX|AVERAGE|SUM|MEDIAN|PERCENTILE|VARIANCE_POPULATION|VARIANCE_SAMPLE|STDDEV_POPULATION|STDDEV_SAMPLE|REVERSE|FIRST|LAST|NTH|POSITION|SLICE|UNIQUE|UNION|UNION_DISTINCT|MINUS|INTERSECTION|append|push|unshift|pop|shift|remove_value|remove_values|remove_nth|APPEND|PUSH|UNSHIFT|POP|SHIFT|REMOVE_VALUE|REMOVE_VALUES|REMOVE_NTH)\b</string>
 						<key>name</key>
-						<string>list.function.aql</string>
+						<string>entity.name.function.aql</string>
 					</dict>
 				</array>
 			</dict>
@@ -87,7 +87,7 @@
 						<key>match</key>
 						<string>\b(matches|merge|merge_recursive|translate|has|attributes|values|zip|unset|keep|parse_identifier|MATCHES|MERGE|MERGE_RECURSIVE|TRANSLATE|HAS|ATTRIBUTES|VALUES|ZIP|UNSET|KEEP|PARSE_IDENTIFIER)\b</string>
 						<key>name</key>
-						<string>document.function.aql</string>
+						<string>entity.name.function.aql</string>
 					</dict>
 				</array>
 			</dict>
@@ -98,7 +98,7 @@
 						<key>match</key>
 						<string>\b(near|within|within_rectangle|is_in_polygon|NEAR|WITHIN|WITHIN_RECTANGLE|IS_IN_POLYGON)\b</string>
 						<key>name</key>
-						<string>geo.function.aql</string>
+						<string>entity.name.function.aql</string>
 					</dict>
 				</array>
 			</dict>
@@ -109,7 +109,7 @@
 						<key>match</key>
 						<string>\b(fulltext|FULLTEXT)\b</string>
 						<key>name</key>
-						<string>fulltext.function.aql</string>
+						<string>entity.name.function.aql</string>
 					</dict>
 				</array>
 			</dict>
@@ -120,7 +120,7 @@
 						<key>match</key>
 						<string>\b(paths|traversal|traversal_tree|shortest_path|neighbors|PATHS|TRAVERSAL|TRAVERSAL_TREE|SHORTEST_PATH|NEIGHBORS)\b</string>
 						<key>name</key>
-						<string>graph.function.aql</string>
+						<string>entity.name.function.aql</string>
 					</dict>
 				</array>
 			</dict>
@@ -129,9 +129,9 @@
 				<array>
 					<dict>
 						<key>match</key>
-						<string>\b(not_null|first_list|first_document|collections|current_user|document|skiplist|not_null|FIRST_LIST|FIRST_DOCUMENT|COLLECTIONS|CURRENT_USER|DOCUMENT|SKIPLIST)\b</string>
+						<string>\b(not_null|first_list|first_document|collections|current_user|document|skiplist|not_null|FIRST_LIST|FIRST_DOCUMENT|COLLECTIONS|CURRENT_USER|DOCUMENT|SKIPLIST|call|apply|CALL|APPLY)\b</string>
 						<key>name</key>
-						<string>miscellaneus.function.aql</string>
+						<string>entity.name.function.aql</string>
 					</dict>
 				</array>
 			</dict>
