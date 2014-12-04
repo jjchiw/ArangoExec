@@ -1,6 +1,8 @@
 import sublime, sublime_plugin, http.client, socket, types, threading, time, json
 
 selectedIndexOptions = -1
+collections = []
+command = Command()
 
 class Options:
     def __init__(self, name):
@@ -38,13 +40,43 @@ class Command():
     def explain(self, query):
         requestObject = { 'query' : query }
         urlPart = "/_api/explain"
-
-        self._execute(requestObject, urlPart)
+        respBodyText = self._execute(requestObject, urlPart)
+        self._showToConsole(respBodyText)
 
     def execute(self, query):
         requestObject = { 'query' : query, 'count' : True, 'batchSize' :100 }
         urlPart = "/_api/cursor"
-        self._execute(requestObject, urlPart) 
+        respBodyText = self._execute(requestObject, urlPart)
+        self._showToConsole(respBodyText)
+
+    def fillDatabaseCollections(self):
+        global collections
+
+        query = "for e in Collections() filter SUBSTRING(e.name, 0, 1) != '_' return e.name"
+        requestObject = { 'query' : query, 'count' : True, 'batchSize' :100 }
+        urlPart = "/_api/cursor"
+        respBodyText = self._execute(requestObject, urlPart)
+        obj = json.loads(respBodyText)
+
+        collections = []
+        for collectionName in obj['result']:
+            collections.append((collectionName, collectionName))
+
+    def _showToConsole(self, respBodyText):
+        obj = json.loads(respBodyText)
+
+        prettyRespBodyText = json.dumps(obj,
+                                  indent = 2,
+                                  ensure_ascii = False,
+                                  sort_keys = False,
+                                  separators = (',', ': '))
+
+        panel = sublime.active_window().get_output_panel("arango_panel_output")
+        panel.set_read_only(False)
+        panel.set_syntax_file("Packages/JavaScript/JSON.tmLanguage")
+        panel.run_command('append', {'characters': prettyRespBodyText})
+        panel.set_read_only(True)
+        sublime.active_window().run_command("show_panel", {"panel": "output.arango_panel_output"})
 
     def _execute(self, requestObject, urlPart):
         global selectedIndexOptions
@@ -93,26 +125,12 @@ class Command():
             latencyTimeMilisec = int((endReqTime - startReqTime) * 1000)
             downloadTimeMilisec = int((endDownloadTime - startDownloadTime) * 1000)
 
-            respText = self.getResponseTextForPresentation(respHeaderText, respBodyText, latencyTimeMilisec, downloadTimeMilisec)
-
+            #respText = self.getResponseTextForPresentation(respHeaderText, respBodyText, latencyTimeMilisec, downloadTimeMilisec)
             
-
-            obj = json.loads(respBodyText)
-
-            prettyRespBodyText = json.dumps(obj,
-                                      indent = 2,
-                                      ensure_ascii = False,
-                                      sort_keys = False,
-                                      separators = (',', ': '))
-
-            panel = sublime.active_window().get_output_panel("arango_panel_output")
-            panel.set_read_only(False)
-            panel.set_syntax_file("Packages/JavaScript/JSON.tmLanguage")
-            panel.run_command('append', {'characters': prettyRespBodyText})
-            panel.set_read_only(True)
-            sublime.active_window().run_command("show_panel", {"panel": "output.arango_panel_output"})
-
             conn.close()
+
+            return respBodyText
+
         except (socket.error, http.client.HTTPException, socket.timeout) as e:
             print(e)
         except AttributeError as e:
@@ -164,21 +182,21 @@ class Command():
         return respHeaderText + "\n" + "Latency: " + str(latencyTimeMilisec) + "ms" + "\n" + "Download time:" + str(downloadTimeMilisec) + "ms" + "\n\n\n" + respBodyText
 
 def arangoChangeConnection(index):
-    global selectedIndexOptions
+    global selectedIndexOptions, command
     names = Options.list()
     selectedIndexOptions = index
-    sublime.status_message(' SQLExec: switched to %s' % names[index])
-
+    sublime.status_message(' ArangoExec: switched to %s' % names[index])
+    command.fillDatabaseCollections()
 
 
 class arangoListConnection(sublime_plugin.TextCommand):
     def run(self, edit):
         sublime.active_window().show_quick_panel(Options.list(), arangoChangeConnection)
 
-
 class ArangoExplainCommand(sublime_plugin.TextCommand):
 
     def run(self, edit):
+        global command
         Options.list()
         for region in self.view.sel():
             # If no selection, use the entire file as the selection
@@ -188,13 +206,12 @@ class ArangoExplainCommand(sublime_plugin.TextCommand):
             else:
                 query = self.view.substr(sublime.Region(region.a, region.b))
 
-            command = Command()
             command.explain(query)
-
 
 class ArangoExecCommand(sublime_plugin.TextCommand):
 
     def run(self, edit):
+        global command
         Options.list()
         for region in self.view.sel():
             # If no selection, use the entire file as the selection
@@ -204,5 +221,13 @@ class ArangoExecCommand(sublime_plugin.TextCommand):
             else:
                 query = self.view.substr(sublime.Region(region.a, region.b))
 
-            command = Command()
             command.execute(query)
+
+class ArangoAutoComplete(sublime_plugin.EventListener):
+    def on_query_completions(self, view, prefix, locations):
+        global collections
+        syntax = view.settings().get('syntax')
+        if not syntax == "Packages/ArangoExec/Aql.tmLanguage":
+            return []
+
+        return collections
