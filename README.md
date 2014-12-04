@@ -58,7 +58,7 @@ Settings
 
 * Use credentials
 * ~~Function Intellisense (autocompletion)~~
-* Collections, Edges intellisense
+* ~~Collections, Edges intellisense~~
 * I know there are more things, but I'm not really sure right now what else :)
 
 Inspired and Based on [SQLExec](https://sublime.wbond.net/packages/SQLExec) & [SublimeHttpRequester](https://github.com/braindamageinc/SublimeHttpRequester)
