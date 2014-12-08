@@ -1,9 +1,5 @@
 import sublime, sublime_plugin, http.client, socket, types, threading, time, json
 
-selectedIndexOptions = -1
-collections = []
-command = Command()
-
 class Options:
     def __init__(self, name):
         self.name     = name
@@ -38,12 +34,14 @@ class Command():
     htmlCharset = "utf-8"
 
     def explain(self, query):
+        self._clearConsole()
         requestObject = { 'query' : query }
         urlPart = "/_api/explain"
         respBodyText = self._execute(requestObject, urlPart)
         self._showToConsole(respBodyText)
 
     def execute(self, query):
+        self._clearConsole()
         requestObject = { 'query' : query, 'count' : True, 'batchSize' :100 }
         urlPart = "/_api/cursor"
         respBodyText = self._execute(requestObject, urlPart)
@@ -75,6 +73,14 @@ class Command():
         panel.set_read_only(False)
         panel.set_syntax_file("Packages/JavaScript/JSON.tmLanguage")
         panel.run_command('append', {'characters': prettyRespBodyText})
+        panel.set_read_only(True)
+        sublime.active_window().run_command("show_panel", {"panel": "output.arango_panel_output"})
+
+    def _clearConsole(self):
+        panel = sublime.active_window().get_output_panel("arango_panel_output")
+        panel.set_read_only(False)
+        panel.set_syntax_file("Packages/JavaScript/JSON.tmLanguage")
+        panel.run_command('append', {'characters': 'loading...'})
         panel.set_read_only(True)
         sublime.active_window().run_command("show_panel", {"panel": "output.arango_panel_output"})
 
@@ -231,3 +237,7 @@ class ArangoAutoComplete(sublime_plugin.EventListener):
             return []
 
         return collections
+
+selectedIndexOptions = -1
+collections = []
+command = Command()
