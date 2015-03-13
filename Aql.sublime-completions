@@ -135,8 +135,13 @@
         { "trigger": "DOCUMENT(id)", "contents": "DOCUMENT(${1:id})" }, 
         { "trigger": "SKIPLIST(collection, condition, skip, limit)", "contents": "SKIPLIST(${1:collection}, ${2:condition}, ${3:skip}, ${4:limit})" }, 
         { "trigger": "CALL(function, arg1, ..., argn)", "contents": "CALL(${1:function}, ${2:arg1}, ${3:argn})" }, 
-        { "trigger": "APPLY(function, arguments)", "contents": "APPLY(${1:function}, ${2:arguments})" }
+        { "trigger": "APPLY(function, arguments)", "contents": "APPLY(${1:function}, ${2:arguments})" },
 
+
+        //2.5
+        { "trigger": "MD5(value)", "contents": "MD5(${1:value})" },
+        { "trigger": "SHA1(value)", "contents": "SHA1(${1:value})" },
+        { "trigger": "RANDOM_TOKEN(length)", "contents": "RANDOM_TOKEN(${1:length})" }
 
     ]
 }
