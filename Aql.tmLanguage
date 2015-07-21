@@ -19,7 +19,7 @@
 				<array>
 					<dict>
 						<key>match</key>
-						<string>\b(for|in|let|filter|sort|return|update|with|insert|remove|collect|limit|asc|desc|into|not|and|or|null|true|false|FOR|IN|LET|FILTER|SORT|RETURN|UPDATE|WITH|INSERT|REMOVE|COLLECT|LIMIT|ASC|DESC|INTO|NOT|AND|OR|NULL|TRUE|FALSE)\b</string>
+						<string>\b(for|in|let|filter|sort|return|update|with|insert|remove|collect|limit|asc|desc|into|not|and|or|null|true|false|options|FOR|IN|LET|FILTER|SORT|RETURN|UPDATE|WITH|INSERT|REMOVE|COLLECT|LIMIT|ASC|DESC|INTO|NOT|AND|OR|NULL|TRUE|FALSE|OPTIONS)\b</string>
 						<key>name</key>
 						<string>storage.modifier.aql</string>
 					</dict>
