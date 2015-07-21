@@ -23,6 +23,7 @@
         "NULL",
         "TRUE",
         "FALSE",
+        "OPTIONS",
 
         { "trigger": "TO_BOOL(value)", "contents": "TO_BOOL(${1:value})" },
         { "trigger": "TO_NUMBER(value)", "contents": "TO_NUMBER(${1:value})" },
