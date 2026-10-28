@@ -58,7 +58,7 @@ Optionally add a top-level `"timeout"` (in seconds, default `500`) to the settin
 # TODO
 --------
 
-* Use credentials
+* ~~Use credentials~~
 * ~~Function Intellisense (autocompletion)~~
 * ~~Collections, Edges intellisense~~
 * I know there are more things, but I'm not really sure right now what else :)

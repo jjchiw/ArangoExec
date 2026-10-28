@@ -1,4 +1,4 @@
-import sublime, sublime_plugin, http.client, socket, types, threading, time, json
+import sublime, sublime_plugin, http.client, socket, types, threading, time, json, base64
 
 class Options:
     def __init__(self, name):
@@ -138,6 +138,11 @@ class Command():
         request_page = "/_db/"+ options.database + urlPart
         requestPOSTBody = json.dumps(requestObject)
         requestType = "POST"
+        requestHeaders = {}
+        # HTTP basic auth, skipped when no username is configured
+        if options.username:
+            credentials = "%s:%s" % (options.username, options.password or "")
+            requestHeaders["Authorization"] = "Basic " + base64.b64encode(credentials.encode("utf-8")).decode("ascii")
 
         try:
             # if not(useProxy):
@@ -152,7 +157,7 @@ class Command():
                 #     else:
                 #         conn = httplib.HTTPSConnection(url, port, timeout=timeoutValue)
 
-            conn.request(requestType, request_page, requestPOSTBody)
+            conn.request(requestType, request_page, requestPOSTBody, requestHeaders)
 
             # else:
             #     print "Using proxy: ", proxyURL + ":" + str(proxyPort)
