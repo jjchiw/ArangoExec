@@ -230,6 +230,9 @@ class Command():
 
 def arangoChangeConnection(index):
     global selectedIndexOptions, command
+    # the quick panel reports -1 when it is cancelled
+    if index == -1:
+        return
     names = Options.list()
     selectedIndexOptions = index
     sublime.status_message(' ArangoExec: switched to %s' % names[index])
