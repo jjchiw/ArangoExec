@@ -71,15 +71,23 @@ class Command():
 
         panel = sublime.active_window().get_output_panel("arango_panel_output")
         panel.set_read_only(False)
-        panel.set_syntax_file("Packages/JavaScript/JSON.tmLanguage")
+        self._setJsonSyntax(panel)
         panel.run_command('append', {'characters': prettyRespBodyText})
         panel.set_read_only(True)
         sublime.active_window().run_command("show_panel", {"panel": "output.arango_panel_output"})
 
+    def _setJsonSyntax(self, panel):
+        # the JSON syntax file lives in different places on ST3 and ST4
+        for fileName in ("JSON.sublime-syntax", "JSON.tmLanguage"):
+            resources = sublime.find_resources(fileName)
+            if resources:
+                panel.set_syntax_file(resources[0])
+                return
+
     def _clearConsole(self):
         panel = sublime.active_window().get_output_panel("arango_panel_output")
         panel.set_read_only(False)
-        panel.set_syntax_file("Packages/JavaScript/JSON.tmLanguage")
+        self._setJsonSyntax(panel)
         panel.run_command('append', {'characters': 'loading...'})
         panel.set_read_only(True)
         sublime.active_window().run_command("show_panel", {"panel": "output.arango_panel_output"})
