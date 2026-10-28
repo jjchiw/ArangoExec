@@ -34,6 +34,12 @@ class Command():
     htmlCharset = "utf-8"
     httpContentTypes = [FILE_TYPE_HTML, FILE_TYPE_JSON, FILE_TYPE_XML]
 
+    def __init__(self):
+        # window id -> number of its latest request, used to drop superseded results
+        # only read and written on the UI thread (_executeAsync and the set_timeout callback), no lock needed
+        self.latestRequests = {}
+        self.requestCounter = 0
+
     def explain(self, window, query):
         requestObject = { 'query' : query }
         urlPart = "/_api/explain"
@@ -58,12 +64,22 @@ class Command():
         self._clearConsole(window)
         # pick the connection now, the user may switch it while the request waits
         options = self._currentOptions()
+        self.requestCounter += 1
+        requestNumber = self.requestCounter
+        self.latestRequests[window.id()] = requestNumber
+
+        def showResult(respBodyText):
+            # on the UI thread: a newer query in this window owns the panel now
+            if self.latestRequests.get(window.id()) != requestNumber:
+                print("ArangoExec: ignoring the result of a superseded query")
+                return
+            self._showToConsole(window, respBodyText)
 
         def request():
             # on a background thread: the (possibly slow) HTTP request
             respBodyText = self._execute(options, requestObject, urlPart)
             # back on the UI thread to update the panel
-            sublime.set_timeout(lambda: self._showToConsole(window, respBodyText), 0)
+            sublime.set_timeout(lambda: showResult(respBodyText), 0)
 
         sublime.set_timeout_async(request, 0)
 
