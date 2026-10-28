@@ -44,28 +44,40 @@ class Command():
         urlPart = "/_api/cursor"
         self._executeAsync(window, requestObject, urlPart)
 
+    def _currentOptions(self):
+        global selectedIndexOptions
+
+        if selectedIndexOptions == -1 :
+            selectedIndexOptions = 0
+
+        names = Options.list()
+        return Options(names[selectedIndexOptions])
+
     def _executeAsync(self, window, requestObject, urlPart):
         # on the UI thread: clear the panel and show the loading message
         self._clearConsole(window)
+        # pick the connection now, the user may switch it while the request waits
+        options = self._currentOptions()
 
         def request():
             # on a background thread: the (possibly slow) HTTP request
-            respBodyText = self._execute(requestObject, urlPart)
+            respBodyText = self._execute(options, requestObject, urlPart)
             # back on the UI thread to update the panel
             sublime.set_timeout(lambda: self._showToConsole(window, respBodyText), 0)
 
         sublime.set_timeout_async(request, 0)
 
     def fillDatabaseCollections(self):
-        sublime.set_timeout_async(self._fillDatabaseCollections, 0)
+        options = self._currentOptions()
+        sublime.set_timeout_async(lambda: self._fillDatabaseCollections(options), 0)
 
-    def _fillDatabaseCollections(self):
+    def _fillDatabaseCollections(self, options):
         global collections
 
         query = "for e in Collections() filter SUBSTRING(e.name, 0, 1) != '_' return e.name"
         requestObject = { 'query' : query, 'count' : True, 'batchSize' :100 }
         urlPart = "/_api/cursor"
-        respBodyText = self._execute(requestObject, urlPart)
+        respBodyText = self._execute(options, requestObject, urlPart)
 
         collections = []
         try:
@@ -123,15 +135,7 @@ class Command():
         panel.set_read_only(True)
         window.run_command("show_panel", {"panel": "output.arango_panel_output"})
 
-    def _execute(self, requestObject, urlPart):
-        global selectedIndexOptions
-
-        if selectedIndexOptions == -1 :
-            selectedIndexOptions = 0
-
-        names = Options.list()
-        options = Options(names[selectedIndexOptions])
-
+    def _execute(self, options, requestObject, urlPart):
         host = options.host
         port = options.port
         timeoutValue = sublime.load_settings("ArangoExec.sublime-settings").get('timeout', 500)
