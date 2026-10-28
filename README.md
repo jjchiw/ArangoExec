@@ -53,6 +53,8 @@ Settings
 }
 ```
 
+Optionally add a top-level `"timeout"` (in seconds, default `500`) to the settings to change how long a request may take.
+
 # TODO
 --------
 

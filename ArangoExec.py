@@ -34,21 +34,32 @@ class Command():
     htmlCharset = "utf-8"
     httpContentTypes = [FILE_TYPE_HTML, FILE_TYPE_JSON, FILE_TYPE_XML]
 
-    def explain(self, query):
-        self._clearConsole()
+    def explain(self, window, query):
         requestObject = { 'query' : query }
         urlPart = "/_api/explain"
-        respBodyText = self._execute(requestObject, urlPart)
-        self._showToConsole(respBodyText)
+        self._executeAsync(window, requestObject, urlPart)
 
-    def execute(self, query):
-        self._clearConsole()
+    def execute(self, window, query):
         requestObject = { 'query' : query, 'count' : True, 'batchSize' :100 }
         urlPart = "/_api/cursor"
-        respBodyText = self._execute(requestObject, urlPart)
-        self._showToConsole(respBodyText)
+        self._executeAsync(window, requestObject, urlPart)
+
+    def _executeAsync(self, window, requestObject, urlPart):
+        # on the UI thread: clear the panel and show the loading message
+        self._clearConsole(window)
+
+        def request():
+            # on a background thread: the (possibly slow) HTTP request
+            respBodyText = self._execute(requestObject, urlPart)
+            # back on the UI thread to update the panel
+            sublime.set_timeout(lambda: self._showToConsole(window, respBodyText), 0)
+
+        sublime.set_timeout_async(request, 0)
 
     def fillDatabaseCollections(self):
+        sublime.set_timeout_async(self._fillDatabaseCollections, 0)
+
+    def _fillDatabaseCollections(self):
         global collections
 
         query = "for e in Collections() filter SUBSTRING(e.name, 0, 1) != '_' return e.name"
@@ -69,7 +80,7 @@ class Command():
         for collectionName in obj['result']:
             collections.append((collectionName, collectionName))
 
-    def _showToConsole(self, respBodyText):
+    def _showToConsole(self, window, respBodyText):
         if respBodyText is None:
             prettyRespBodyText = "ArangoExec: the request failed, see the Sublime console (View > Show Console)."
         else:
@@ -84,12 +95,7 @@ class Command():
                 # not JSON (e.g. an HTML error page from a proxy), show it as it is
                 prettyRespBodyText = respBodyText
 
-        panel = sublime.active_window().get_output_panel("arango_panel_output")
-        panel.set_read_only(False)
-        self._setJsonSyntax(panel)
-        panel.run_command('append', {'characters': prettyRespBodyText})
-        panel.set_read_only(True)
-        sublime.active_window().run_command("show_panel", {"panel": "output.arango_panel_output"})
+        self._setConsole(window, prettyRespBodyText)
 
     def _setJsonSyntax(self, panel):
         # the JSON syntax file lives in different places on ST3 and ST4
@@ -99,13 +105,23 @@ class Command():
                 panel.set_syntax_file(resources[0])
                 return
 
-    def _clearConsole(self):
-        panel = sublime.active_window().get_output_panel("arango_panel_output")
+    def _clearConsole(self, window):
+        self._setConsole(window, 'loading...')
+
+    def _setConsole(self, window, text):
+        # replaces whatever the output panel shows with text
+        if hasattr(window, "create_output_panel"):
+            panel = window.create_output_panel("arango_panel_output")
+        else:
+            panel = window.get_output_panel("arango_panel_output")
         panel.set_read_only(False)
+        # the panel may keep its old content, so clear it explicitly
+        panel.run_command("select_all")
+        panel.run_command("right_delete")
         self._setJsonSyntax(panel)
-        panel.run_command('append', {'characters': 'loading...'})
+        panel.run_command('append', {'characters': text})
         panel.set_read_only(True)
-        sublime.active_window().run_command("show_panel", {"panel": "output.arango_panel_output"})
+        window.run_command("show_panel", {"panel": "output.arango_panel_output"})
 
     def _execute(self, requestObject, urlPart):
         global selectedIndexOptions
@@ -118,7 +134,7 @@ class Command():
 
         host = options.host
         port = options.port
-        timeoutValue = 500
+        timeoutValue = sublime.load_settings("ArangoExec.sublime-settings").get('timeout', 500)
         request_page = "/_db/"+ options.database + urlPart
         requestPOSTBody = json.dumps(requestObject)
         requestType = "POST"
@@ -229,6 +245,8 @@ class ArangoExplainCommand(sublime_plugin.TextCommand):
     def run(self, edit):
         global command
         Options.list()
+        # keep the window the command was run from, the user may switch windows meanwhile
+        window = self.view.window() or sublime.active_window()
         for region in self.view.sel():
             # If no selection, use the entire file as the selection
             query = ''
@@ -237,13 +255,15 @@ class ArangoExplainCommand(sublime_plugin.TextCommand):
             else:
                 query = self.view.substr(sublime.Region(region.a, region.b))
 
-            command.explain(query)
+            command.explain(window, query)
 
 class ArangoExecCommand(sublime_plugin.TextCommand):
 
     def run(self, edit):
         global command
         Options.list()
+        # keep the window the command was run from, the user may switch windows meanwhile
+        window = self.view.window() or sublime.active_window()
         for region in self.view.sel():
             # If no selection, use the entire file as the selection
             query = ''
@@ -252,7 +272,7 @@ class ArangoExecCommand(sublime_plugin.TextCommand):
             else:
                 query = self.view.substr(sublime.Region(region.a, region.b))
 
-            command.execute(query)
+            command.execute(window, query)
 
 class ArangoAutoComplete(sublime_plugin.EventListener):
     def on_query_completions(self, view, prefix, locations):
