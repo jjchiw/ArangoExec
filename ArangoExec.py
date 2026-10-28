@@ -32,6 +32,7 @@ class Command():
     MAX_BYTES_BUFFER_SIZE = 8192
     HTML_CHARSET_HEADER = "CHARSET"
     htmlCharset = "utf-8"
+    httpContentTypes = [FILE_TYPE_HTML, FILE_TYPE_JSON, FILE_TYPE_XML]
 
     def explain(self, query):
         self._clearConsole()
@@ -54,20 +55,34 @@ class Command():
         requestObject = { 'query' : query, 'count' : True, 'batchSize' :100 }
         urlPart = "/_api/cursor"
         respBodyText = self._execute(requestObject, urlPart)
-        obj = json.loads(respBodyText)
 
         collections = []
+        try:
+            obj = json.loads(respBodyText)
+        except (TypeError, ValueError):
+            obj = None
+
+        if not isinstance(obj, dict) or 'result' not in obj:
+            print("ArangoExec: could not load the collection names")
+            return
+
         for collectionName in obj['result']:
             collections.append((collectionName, collectionName))
 
     def _showToConsole(self, respBodyText):
-        obj = json.loads(respBodyText)
-
-        prettyRespBodyText = json.dumps(obj,
-                                  indent = 2,
-                                  ensure_ascii = False,
-                                  sort_keys = False,
-                                  separators = (',', ': '))
+        if respBodyText is None:
+            prettyRespBodyText = "ArangoExec: the request failed, see the Sublime console (View > Show Console)."
+        else:
+            try:
+                obj = json.loads(respBodyText)
+                prettyRespBodyText = json.dumps(obj,
+                                          indent = 2,
+                                          ensure_ascii = False,
+                                          sort_keys = False,
+                                          separators = (',', ': '))
+            except ValueError:
+                # not JSON (e.g. an HTML error page from a proxy), show it as it is
+                prettyRespBodyText = respBodyText
 
         panel = sublime.active_window().get_output_panel("arango_panel_output")
         panel.set_read_only(False)
@@ -146,10 +161,12 @@ class Command():
             return respBodyText
 
         except (socket.error, http.client.HTTPException, socket.timeout) as e:
-            print(e)
+            print("ArangoExec: request to %s:%s failed: %s" % (host, port, e))
         except AttributeError as e:
-            print(e)
-            respText = "HTTPS not supported by your Python version"
+            print("ArangoExec: request to %s:%s failed: %s" % (host, port, e))
+            print("HTTPS not supported by your Python version")
+
+        return None
 
     def getParsedResponse(self, resp):
         fileType = self.FILE_TYPE_HTML
