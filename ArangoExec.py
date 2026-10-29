@@ -39,6 +39,8 @@ class Command():
         # only read and written on the UI thread (_executeAsync and the set_timeout callback), no lock needed
         self.latestRequests = {}
         self.requestCounter = 0
+        # number of the latest collections refresh, same rule: UI thread only
+        self.collectionsGeneration = 0
 
     def explain(self, window, query):
         requestObject = { 'query' : query }
@@ -88,18 +90,35 @@ class Command():
         threading.Thread(target=request, daemon=True).start()
 
     def fillDatabaseCollections(self):
-        options = self._currentOptions()
-        threading.Thread(target=lambda: self._fillDatabaseCollections(options), daemon=True).start()
-
-    def _fillDatabaseCollections(self, options):
         global collections
+        # on the UI thread: the names of the previous connection are stale now
+        collections = []
+        self.collectionsGeneration += 1
+        generation = self.collectionsGeneration
+        options = self._currentOptions()
 
+        def publish(names):
+            global collections
+            # on the UI thread: a newer refresh owns the names now
+            if generation != self.collectionsGeneration:
+                print("ArangoExec: ignoring the collection names of a superseded refresh")
+                return
+            collections = names
+
+        def fetch():
+            # on its own thread: HTTP only, no Sublime API calls
+            names = self._fetchCollections(options)
+            sublime.set_timeout(lambda: publish(names), 0)
+
+        threading.Thread(target=fetch, daemon=True).start()
+
+    def _fetchCollections(self, options):
         query = "for e in Collections() filter SUBSTRING(e.name, 0, 1) != '_' return e.name"
         requestObject = { 'query' : query, 'count' : True, 'batchSize' :100 }
         urlPart = "/_api/cursor"
         respBodyText = self._execute(options, requestObject, urlPart)
 
-        collections = []
+        names = []
         try:
             obj = json.loads(respBodyText)
         except (TypeError, ValueError):
@@ -107,10 +126,11 @@ class Command():
 
         if not isinstance(obj, dict) or 'result' not in obj:
             print("ArangoExec: could not load the collection names")
-            return
+            return names
 
         for collectionName in obj['result']:
-            collections.append((collectionName, collectionName))
+            names.append((collectionName, collectionName))
+        return names
 
     def _showToConsole(self, window, respBodyText):
         if respBodyText is None:
