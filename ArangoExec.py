@@ -57,7 +57,10 @@ class Command():
             selectedIndexOptions = 0
 
         names = Options.list()
-        return Options(names[selectedIndexOptions])
+        options = Options(names[selectedIndexOptions])
+        # read on the UI thread, the request threads make no Sublime API calls
+        options.timeout = sublime.load_settings("ArangoExec.sublime-settings").get('timeout', 500)
+        return options
 
     def _executeAsync(self, window, requestObject, urlPart):
         # on the UI thread: clear the panel and show the loading message
@@ -76,16 +79,17 @@ class Command():
             self._showToConsole(window, respBodyText)
 
         def request():
-            # on a background thread: the (possibly slow) HTTP request
+            # on its own thread: the (possibly slow) HTTP request, no Sublime API calls
             respBodyText = self._execute(options, requestObject, urlPart)
             # back on the UI thread to update the panel
             sublime.set_timeout(lambda: showResult(respBodyText), 0)
 
-        sublime.set_timeout_async(request, 0)
+        # a thread per request: Sublime's async worker is shared by all plugins, a slow request would block it
+        threading.Thread(target=request, daemon=True).start()
 
     def fillDatabaseCollections(self):
         options = self._currentOptions()
-        sublime.set_timeout_async(lambda: self._fillDatabaseCollections(options), 0)
+        threading.Thread(target=lambda: self._fillDatabaseCollections(options), daemon=True).start()
 
     def _fillDatabaseCollections(self, options):
         global collections
@@ -154,7 +158,7 @@ class Command():
     def _execute(self, options, requestObject, urlPart):
         host = options.host
         port = options.port
-        timeoutValue = sublime.load_settings("ArangoExec.sublime-settings").get('timeout', 500)
+        timeoutValue = options.timeout
         request_page = "/_db/"+ options.database + urlPart
         requestPOSTBody = json.dumps(requestObject)
         requestType = "POST"
