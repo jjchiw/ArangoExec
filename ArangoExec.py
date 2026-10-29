@@ -1,4 +1,4 @@
-import sublime, sublime_plugin, http.client, socket, types, threading, time, json
+import sublime, sublime_plugin, http.client, socket, types, threading, time, json, base64
 
 class Options:
     def __init__(self, name):
@@ -32,59 +32,27 @@ class Command():
     MAX_BYTES_BUFFER_SIZE = 8192
     HTML_CHARSET_HEADER = "CHARSET"
     htmlCharset = "utf-8"
+    httpContentTypes = [FILE_TYPE_HTML, FILE_TYPE_JSON, FILE_TYPE_XML]
 
-    def explain(self, query):
-        self._clearConsole()
-        requestObject = { 'query' : query }
+    def __init__(self):
+        # window id -> number of its latest request, used to drop superseded results
+        # only read and written on the UI thread (_executeAsync and the set_timeout callback), no lock needed
+        self.latestRequests = {}
+        self.requestCounter = 0
+        # number of the latest collections refresh, same rule: UI thread only
+        self.collectionsGeneration = 0
+
+    def explain(self, window, queries):
+        requestObjects = [{ 'query' : query } for query in queries]
         urlPart = "/_api/explain"
-        respBodyText = self._execute(requestObject, urlPart)
-        self._showToConsole(respBodyText)
+        self._executeAsync(window, requestObjects, urlPart)
 
-    def execute(self, query):
-        self._clearConsole()
-        requestObject = { 'query' : query, 'count' : True, 'batchSize' :100 }
+    def execute(self, window, queries):
+        requestObjects = [{ 'query' : query, 'count' : True, 'batchSize' :100 } for query in queries]
         urlPart = "/_api/cursor"
-        respBodyText = self._execute(requestObject, urlPart)
-        self._showToConsole(respBodyText)
+        self._executeAsync(window, requestObjects, urlPart)
 
-    def fillDatabaseCollections(self):
-        global collections
-
-        query = "for e in Collections() filter SUBSTRING(e.name, 0, 1) != '_' return e.name"
-        requestObject = { 'query' : query, 'count' : True, 'batchSize' :100 }
-        urlPart = "/_api/cursor"
-        respBodyText = self._execute(requestObject, urlPart)
-        obj = json.loads(respBodyText)
-
-        collections = []
-        for collectionName in obj['result']:
-            collections.append((collectionName, collectionName))
-
-    def _showToConsole(self, respBodyText):
-        obj = json.loads(respBodyText)
-
-        prettyRespBodyText = json.dumps(obj,
-                                  indent = 2,
-                                  ensure_ascii = False,
-                                  sort_keys = False,
-                                  separators = (',', ': '))
-
-        panel = sublime.active_window().get_output_panel("arango_panel_output")
-        panel.set_read_only(False)
-        panel.set_syntax_file("Packages/JavaScript/JSON.tmLanguage")
-        panel.run_command('append', {'characters': prettyRespBodyText})
-        panel.set_read_only(True)
-        sublime.active_window().run_command("show_panel", {"panel": "output.arango_panel_output"})
-
-    def _clearConsole(self):
-        panel = sublime.active_window().get_output_panel("arango_panel_output")
-        panel.set_read_only(False)
-        panel.set_syntax_file("Packages/JavaScript/JSON.tmLanguage")
-        panel.run_command('append', {'characters': 'loading...'})
-        panel.set_read_only(True)
-        sublime.active_window().run_command("show_panel", {"panel": "output.arango_panel_output"})
-
-    def _execute(self, requestObject, urlPart):
+    def _currentOptions(self):
         global selectedIndexOptions
 
         if selectedIndexOptions == -1 :
@@ -92,13 +60,146 @@ class Command():
 
         names = Options.list()
         options = Options(names[selectedIndexOptions])
+        # read on the UI thread, the request threads make no Sublime API calls
+        options.timeout = sublime.load_settings("ArangoExec.sublime-settings").get('timeout', 500)
+        return options
 
+    def _executeAsync(self, window, requestObjects, urlPart):
+        # on the UI thread: clear the panel and show the loading message
+        self._clearConsole(window)
+        # pick the connection now, the user may switch it while the request waits
+        options = self._currentOptions()
+        self.requestCounter += 1
+        requestNumber = self.requestCounter
+        self.latestRequests[window.id()] = requestNumber
+
+        def showResult(respBodyTexts):
+            # on the UI thread: a newer query in this window owns the panel now
+            if self.latestRequests.get(window.id()) != requestNumber:
+                print("ArangoExec: ignoring the result of a superseded query")
+                return
+            self._showToConsole(window, respBodyTexts)
+
+        def request():
+            # on its own thread: the (possibly slow) HTTP requests, no Sublime API calls
+            # one after the other in selection order, a query may depend on the previous one
+            respBodyTexts = [self._execute(options, requestObject, urlPart) for requestObject in requestObjects]
+            # back on the UI thread to update the panel
+            sublime.set_timeout(lambda: showResult(respBodyTexts), 0)
+
+        # a thread per command: Sublime's async worker is shared by all plugins, a slow request would block it
+        threading.Thread(target=request, daemon=True).start()
+
+    def fillDatabaseCollections(self):
+        global collections
+        # on the UI thread: the names of the previous connection are stale now
+        collections = []
+        self.collectionsGeneration += 1
+        generation = self.collectionsGeneration
+        options = self._currentOptions()
+
+        def publish(names):
+            global collections
+            # on the UI thread: a newer refresh owns the names now
+            if generation != self.collectionsGeneration:
+                print("ArangoExec: ignoring the collection names of a superseded refresh")
+                return
+            collections = names
+
+        def fetch():
+            # on its own thread: HTTP only, no Sublime API calls
+            names = self._fetchCollections(options)
+            sublime.set_timeout(lambda: publish(names), 0)
+
+        threading.Thread(target=fetch, daemon=True).start()
+
+    def _fetchCollections(self, options):
+        query = "for e in Collections() filter SUBSTRING(e.name, 0, 1) != '_' return e.name"
+        requestObject = { 'query' : query, 'count' : True, 'batchSize' :100 }
+        urlPart = "/_api/cursor"
+        respBodyText = self._execute(options, requestObject, urlPart)
+
+        names = []
+        try:
+            obj = json.loads(respBodyText)
+        except (TypeError, ValueError):
+            obj = None
+
+        if not isinstance(obj, dict) or 'result' not in obj:
+            print("ArangoExec: could not load the collection names")
+            return names
+
+        for collectionName in obj['result']:
+            names.append((collectionName, collectionName))
+        return names
+
+    def _showToConsole(self, window, respBodyTexts):
+        prettyRespBodyTexts = [self._prettyRespBodyText(respBodyText) for respBodyText in respBodyTexts]
+        if len(prettyRespBodyTexts) == 1:
+            text = prettyRespBodyTexts[0]
+        else:
+            # a header per query, a blank line between them
+            total = len(prettyRespBodyTexts)
+            text = "\n\n".join("// query %d of %d\n%s" % (i + 1, total, pretty)
+                               for i, pretty in enumerate(prettyRespBodyTexts))
+
+        self._setConsole(window, text)
+
+    def _prettyRespBodyText(self, respBodyText):
+        if respBodyText is None:
+            prettyRespBodyText = "ArangoExec: the request failed, see the Sublime console (View > Show Console)."
+        else:
+            try:
+                obj = json.loads(respBodyText)
+                prettyRespBodyText = json.dumps(obj,
+                                          indent = 2,
+                                          ensure_ascii = False,
+                                          sort_keys = False,
+                                          separators = (',', ': '))
+            except ValueError:
+                # not JSON (e.g. an HTML error page from a proxy), show it as it is
+                prettyRespBodyText = respBodyText
+
+        return prettyRespBodyText
+
+    def _setJsonSyntax(self, panel):
+        # the JSON syntax file lives in different places on ST3 and ST4
+        for fileName in ("JSON.sublime-syntax", "JSON.tmLanguage"):
+            resources = sublime.find_resources(fileName)
+            if resources:
+                panel.set_syntax_file(resources[0])
+                return
+
+    def _clearConsole(self, window):
+        self._setConsole(window, 'loading...')
+
+    def _setConsole(self, window, text):
+        # replaces whatever the output panel shows with text
+        if hasattr(window, "create_output_panel"):
+            panel = window.create_output_panel("arango_panel_output")
+        else:
+            panel = window.get_output_panel("arango_panel_output")
+        panel.set_read_only(False)
+        # the panel may keep its old content, so clear it explicitly
+        panel.run_command("select_all")
+        panel.run_command("right_delete")
+        self._setJsonSyntax(panel)
+        panel.run_command('append', {'characters': text})
+        panel.set_read_only(True)
+        window.run_command("show_panel", {"panel": "output.arango_panel_output"})
+
+    def _execute(self, options, requestObject, urlPart):
         host = options.host
         port = options.port
-        timeoutValue = 500
+        timeoutValue = options.timeout
         request_page = "/_db/"+ options.database + urlPart
         requestPOSTBody = json.dumps(requestObject)
         requestType = "POST"
+        requestHeaders = {}
+        # HTTP basic auth, skipped when no username is configured
+        if options.username:
+            credentials = "%s:%s" % (options.username, options.password or "")
+            requestHeaders["Authorization"] = "Basic " + base64.b64encode(credentials.encode("utf-8")).decode("ascii")
 
         try:
             # if not(useProxy):
@@ -113,7 +214,7 @@ class Command():
                 #     else:
                 #         conn = httplib.HTTPSConnection(url, port, timeout=timeoutValue)
 
-            conn.request(requestType, request_page, requestPOSTBody)
+            conn.request(requestType, request_page, requestPOSTBody, requestHeaders)
 
             # else:
             #     print "Using proxy: ", proxyURL + ":" + str(proxyPort)
@@ -138,10 +239,12 @@ class Command():
             return respBodyText
 
         except (socket.error, http.client.HTTPException, socket.timeout) as e:
-            print(e)
+            print("ArangoExec: request to %s:%s failed: %s" % (host, port, e))
         except AttributeError as e:
-            print(e)
-            respText = "HTTPS not supported by your Python version"
+            print("ArangoExec: request to %s:%s failed: %s" % (host, port, e))
+            print("HTTPS not supported by your Python version")
+
+        return None
 
     def getParsedResponse(self, resp):
         fileType = self.FILE_TYPE_HTML
@@ -189,11 +292,24 @@ class Command():
 
 def arangoChangeConnection(index):
     global selectedIndexOptions, command
+    # the quick panel reports -1 when it is cancelled
+    if index == -1:
+        return
     names = Options.list()
     selectedIndexOptions = index
     sublime.status_message(' ArangoExec: switched to %s' % names[index])
     command.fillDatabaseCollections()
 
+
+def selectedQueries(view):
+    queries = []
+    for region in view.sel():
+        # If no selection, use the entire file as the selection
+        if region.empty() :
+            queries.append(view.substr(sublime.Region(0, view.size())))
+        else:
+            queries.append(view.substr(sublime.Region(region.a, region.b)))
+    return queries
 
 class arangoListConnection(sublime_plugin.TextCommand):
     def run(self, edit):
@@ -204,30 +320,18 @@ class ArangoExplainCommand(sublime_plugin.TextCommand):
     def run(self, edit):
         global command
         Options.list()
-        for region in self.view.sel():
-            # If no selection, use the entire file as the selection
-            query = ''
-            if region.empty() :
-                query = self.view.substr(sublime.Region(0, self.view.size()))
-            else:
-                query = self.view.substr(sublime.Region(region.a, region.b))
-
-            command.explain(query)
+        # keep the window the command was run from, the user may switch windows meanwhile
+        window = self.view.window() or sublime.active_window()
+        command.explain(window, selectedQueries(self.view))
 
 class ArangoExecCommand(sublime_plugin.TextCommand):
 
     def run(self, edit):
         global command
         Options.list()
-        for region in self.view.sel():
-            # If no selection, use the entire file as the selection
-            query = ''
-            if region.empty() :
-                query = self.view.substr(sublime.Region(0, self.view.size()))
-            else:
-                query = self.view.substr(sublime.Region(region.a, region.b))
-
-            command.execute(query)
+        # keep the window the command was run from, the user may switch windows meanwhile
+        window = self.view.window() or sublime.active_window()
+        command.execute(window, selectedQueries(self.view))
 
 class ArangoAutoComplete(sublime_plugin.EventListener):
     def on_query_completions(self, view, prefix, locations):

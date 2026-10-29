@@ -53,10 +53,16 @@ Settings
 }
 ```
 
+`username` and `password` are sent with HTTP basic auth. If your server has authentication disabled, leave `username` empty (`""`) and no credentials are sent. Connections use plain HTTP; HTTPS is not supported.
+
+The first connection in alphabetical order is used until you pick another one with `arango_list_connection` (`ctrl+alt+y`).
+
+Optionally add a top-level `"timeout"` (in seconds, default `500`) to the settings to change how long a request may take.
+
 # TODO
 --------
 
-* Use credentials
+* ~~Use credentials~~
 * ~~Function Intellisense (autocompletion)~~
 * ~~Collections, Edges intellisense~~
 * I know there are more things, but I'm not really sure right now what else :)
